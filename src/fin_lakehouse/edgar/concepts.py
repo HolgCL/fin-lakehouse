@@ -82,6 +82,16 @@ CONCEPT_PRIORITY: dict[str, list[str]] = {
     "shares_diluted": [
         "WeightedAverageNumberOfDilutedSharesOutstanding",
     ],
+    # Not in brief §5 / not a gold metric input: extracted only to power the dbt
+    # accounting-identity test (assets = liabilities + equity + these), since Assets includes
+    # noncontrolling interest and temporary/mezzanine equity that parent-only StockholdersEquity
+    # doesn't. Human-confirmed (see AGENTS.md milestone 3 log).
+    "minority_interest": [
+        "MinorityInterest",
+    ],
+    "temporary_equity": [
+        "TemporaryEquityCarryingAmountAttributableToParent",
+    ],
 }
 
 # Unit to read for each field; USD unless noted.
@@ -90,3 +100,7 @@ FIELD_UNIT: dict[str, str] = {
     "eps_diluted": "USD/shares",
     "shares_diluted": "shares",
 }
+
+# Fields where "no data" legitimately means zero (most companies have no noncontrolling
+# interest / mezzanine equity) rather than a missing-data problem worth logging loudly.
+ZERO_DEFAULT_FIELDS: frozenset[str] = frozenset({"minority_interest", "temporary_equity"})

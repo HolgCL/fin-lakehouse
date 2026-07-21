@@ -8,6 +8,7 @@ ingest:
 
 build:
 	uv run python -m fin_lakehouse.build_silver
+	cd transform && uv run dbt build --profiles-dir profiles
 
 test:
 	uv run pytest

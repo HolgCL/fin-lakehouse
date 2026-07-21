@@ -1,0 +1,11 @@
+version: 2
+
+sources:
+  - name: silver
+    schema: silver
+    tables:
+      - name: company_year
+        description: >
+          Tag-priority-extracted, deduped per-company-per-fiscal-year facts, written by
+          src/fin_lakehouse/silver/load.py (see AGENTS.md milestone 2 log for the extraction
+          and dedup rules).

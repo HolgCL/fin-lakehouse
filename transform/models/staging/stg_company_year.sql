@@ -1,0 +1,30 @@
+-- 1:1 passthrough of silver.company_year (docs/PROJECT_BRIEF.md §8).
+select
+    cik,
+    entity_name,
+    fiscal_year,
+    revenue,
+    cogs,
+    gross_profit,
+    operating_income,
+    net_income,
+    total_assets,
+    current_assets,
+    current_liabilities,
+    total_liabilities,
+    equity,
+    cash,
+    inventory,
+    receivables,
+    payables,
+    short_term_debt,
+    long_term_debt,
+    goodwill,
+    goodwill_impairment,
+    eps_basic,
+    eps_diluted,
+    shares_diluted,
+    -- Not §6 gold metrics; powers the accounting-identity test only (see AGENTS.md milestone 3).
+    minority_interest,
+    temporary_equity
+from {{ source('silver', 'company_year') }}

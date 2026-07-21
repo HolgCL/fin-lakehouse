@@ -105,3 +105,37 @@ make build  # dbt build (once transform/ has models — milestone 3+)
     the exact real values. `ruff`, `mypy`, `pytest` (28 tests) all green; `make build` against
     the real KHC bronze snapshot reproduces the known FY2018 story (net loss ≈ $10.2B, $7.0B
     goodwill impairment) with no unresolved conflicts.
+- **Milestone 3**: dbt project (`transform/`) on dbt-duckdb — `stg_company_year` (1:1 passthrough),
+  `int_company_year_with_prior` (LAG for CCC averaging + YoY), `fct_company_year_metrics` (one
+  wide mart, every §6 metric as a column, human-confirmed granularity decision over several
+  narrow marts). `revenue_real_yoy` and `break_even` are out of scope per §6 (no CPI seed table,
+  no fixed/variable split) — skipped, not fabricated. Divide-by-zero → null metric + the metric's
+  name recorded in a `null_metric_flags` list column (human-confirmed design, one column not ~25
+  booleans). Schema tests use a hand-rolled `accepted_range` macro instead of dbt-utils, to keep
+  `git clone` reproducibility dependency-free (no `dbt deps` network fetch). CI runs the real live
+  SEC pipeline (`make ingest && make build`) rather than a fixture-only warehouse — human-confirmed,
+  since EDGAR is free/unauthenticated (the `SEC_USER_AGENT` contact email in `ci.yml` is disclosure
+  to SEC, not a secret).
+  - **Accounting-identity test, two real findings, both human-confirmed:** (1) `assets =
+    liabilities + equity` failed for all 11 KHC fiscal years using only the gold `equity` field
+    (parent-only `StockholdersEquity`) — real gaps of ~$120–220M (noncontrolling interest) most
+    years and $8.55B in FY2015 (temporary/mezzanine equity from the Kraft-Heinz merger's preferred
+    financing, confirmed via `LiabilitiesAndStockholdersEquity` tying to `Assets` exactly). Fixed
+    by extracting `minority_interest` and `temporary_equity` as new silver fields — defaulting to
+    0 when absent (`ZERO_DEFAULT_FIELDS` in `concepts.py`, not logged as missing, since 0 is
+    legitimately correct for companies without these) — used only by the identity test, not
+    exposed as gold metrics since they're outside §6. (2) The remaining residual (up to ~0.044%
+    of total assets, from further obscure components like redeemable NCI) is immaterial rounding
+    noise, not a bug — switched the tolerance from a flat $1M absolute to 0.1% of `total_assets`
+    (relative), since an absolute dollar tolerance doesn't scale across company sizes and a real
+    extraction bug would produce a gap orders of magnitude larger than a few basis points.
+  - Oracle for `tests/test_gold_metrics.py`: 10 KHC FY2018 values (current_ratio, quick_ratio,
+    working_capital, debt_to_equity, goodwill_to_assets, equity_ex_goodwill, DSO, net_margin,
+    normalized_net_income, net_debt) hand-computed from the real silver FY2017/FY2018 raw values
+    by plain arithmetic (not via any production code path) and human-confirmed before being
+    trusted as test assertions, per §1.4. All matched the dbt-built values exactly once the
+    identity-test bugs above were fixed.
+  - `ruff`, `mypy`, `pytest` (34 tests) and `dbt build` (11/11 pass) all green. `make build`
+    reproduces the flagship KHC FY2018 story end to end: goodwill 35.3% of assets, equity
+    survives ex-goodwill ($15.2B) but net income is still negative even normalized for the
+    impairment (-$3.2B) — a genuine operating problem beyond the write-down itself.

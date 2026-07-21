@@ -1,0 +1,44 @@
+version: 2
+
+models:
+  - name: fct_company_year_metrics
+    description: >
+      Gold metrics, one row per company-year (docs/PROJECT_BRIEF.md §6). Divide-by-zero
+      denominators produce a null metric, named in null_metric_flags.
+    columns:
+      - name: cik
+        tests:
+          - not_null
+      - name: fiscal_year
+        tests:
+          - not_null
+      - name: current_ratio
+        tests:
+          - accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 50
+      - name: quick_ratio
+        tests:
+          - accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 50
+      - name: goodwill_to_assets
+        tests:
+          - accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+      - name: gross_margin
+        tests:
+          - accepted_range:
+              arguments:
+                min_value: -2
+                max_value: 2
+      - name: net_margin
+        tests:
+          - accepted_range:
+              arguments:
+                min_value: -5
+                max_value: 5

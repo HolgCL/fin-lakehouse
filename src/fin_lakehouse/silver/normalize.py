@@ -21,7 +21,7 @@ from typing import Any
 import polars as pl
 import structlog
 
-from fin_lakehouse.edgar.concepts import CONCEPT_PRIORITY, FIELD_UNIT
+from fin_lakehouse.edgar.concepts import CONCEPT_PRIORITY, FIELD_UNIT, ZERO_DEFAULT_FIELDS
 
 logger = structlog.get_logger()
 
@@ -118,8 +118,9 @@ def extract_company_year(cik10: str, entity_name: str, raw_companyfacts: bytes) 
         }
         for field in CONCEPT_PRIORITY:
             value, _tag_used = _extract_field(raw_facts, field, fiscal_year)
-            row[field] = value
-            if value is None:
+            if value is None and field in ZERO_DEFAULT_FIELDS:
+                value = 0.0  # no data legitimately means zero for these (see concepts.py)
+            elif value is None:
                 logger.warning(
                     "silver.missing_field",
                     cik=cik10,
@@ -127,6 +128,7 @@ def extract_company_year(cik10: str, entity_name: str, raw_companyfacts: bytes) 
                     fiscal_year=fiscal_year,
                     field=field,
                 )
+            row[field] = value
         rows.append(row)
 
     return pl.DataFrame(rows)

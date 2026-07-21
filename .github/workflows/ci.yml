@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
 
+env:
+  # SEC requires a descriptive contact User-Agent (docs/PROJECT_BRIEF.md §5) -- disclosure to
+  # SEC by design, not a secret. No auth token or credential is involved.
+  SEC_USER_AGENT: "fin-lakehouse-ci/0.1 (contact: olegkass139@gmail.com)"
+
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
@@ -25,7 +30,11 @@ jobs:
       - name: Mypy
         run: uv run mypy src/
 
+      - name: Ingest KHC from SEC EDGAR
+        run: make ingest
+
+      - name: Build silver + gold (dbt build)
+        run: make build
+
       - name: Pytest
         run: uv run pytest
-
-      # dbt build is wired in once the transform/ dbt project exists (milestone 3).

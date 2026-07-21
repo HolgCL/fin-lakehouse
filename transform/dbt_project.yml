@@ -1,0 +1,21 @@
+name: "fin_lakehouse"
+version: "1.0.0"
+config-version: 2
+
+profile: "fin_lakehouse"
+
+model-paths: ["models"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+models:
+  fin_lakehouse:
+    staging:
+      +materialized: view
+    marts:
+      +materialized: table
+      +schema: gold

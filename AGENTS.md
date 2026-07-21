@@ -70,7 +70,15 @@ make build  # dbt build (once transform/ has models — milestone 3+)
 
 ## Milestone log
 
-- **Milestone 0** (this commit): repo scaffold, tooling config, CI skeleton, README stub,
+- **Milestone 0**: repo scaffold, tooling config, CI skeleton, README stub,
   `AGENTS.md`. No pipeline logic yet — `config.py` only, plus placeholder package `__init__.py`
   files under `src/fin_lakehouse/{edgar,bronze,silver,detector}/` establishing the layout from
   brief §8. `ruff`, `mypy`, `pytest` all green on this minimal surface.
+- **Milestone 1**: `edgar/client.py` (UA header, retry+backoff+jitter, ~10 req/s rate limit,
+  on-disk cache), `edgar/cik.py` (ticker→CIK resolution), `bronze/land.py` (verbatim landing,
+  partitioned `cik={cik10}/landed={date}` — see brief §8 note on the "filed" partition being
+  ambiguous for a whole-history payload; resolved as ingestion date, human-confirmed).
+  `ingest.py` wires these into `make ingest`. Ran a real live pull for KHC (CIK `0001637459`,
+  "Kraft Heinz Co") to prove the path end to end and to source `tests/fixtures/*.json` — trimmed
+  but real SEC data, not fabricated. All 15 tests run against the fixtures via
+  `httpx.MockTransport`, never the live API.

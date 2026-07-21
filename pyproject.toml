@@ -12,6 +12,7 @@ dependencies = [
     "httpx>=0.27",
     "pydantic-settings>=2.4",
     "structlog>=24.1",
+    "pyarrow>=17.0",
 ]
 
 [dependency-groups]

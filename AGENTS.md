@@ -82,3 +82,26 @@ make build  # dbt build (once transform/ has models — milestone 3+)
   "Kraft Heinz Co") to prove the path end to end and to source `tests/fixtures/*.json` — trimmed
   but real SEC data, not fabricated. All 15 tests run against the fixtures via
   `httpx.MockTransport`, never the live API.
+- **Milestone 2**: `edgar/concepts.py` (§5 tag-priority map), `silver/normalize.py`
+  (tag-priority extraction + dedup into a tidy company-year table), `silver/load.py` (persists
+  to `silver.company_year` in `data/warehouse.duckdb`, replace-on-write for idempotency),
+  `build_silver.py` wired into `make build`. Findings against real KHC data, all human-confirmed
+  before coding:
+  - Three fields (`revenue`, `payables`, `long_term_debt`) don't resolve via any of §5's listed
+    tags for KHC. Appended real fallback tags after the spec tags (spec tags still win when
+    present): `RevenueFromContractWithCustomerIncludingAssessedTax` + `SalesRevenueGoodsNet`
+    (revenue, together give full 2015–2025 coverage), `AccountsPayableTradeCurrent` (payables),
+    `LongTermDebtAndCapitalLeaseObligations` (long_term_debt).
+  - Dedup rule for facts sharing `(concept, fiscal_year)`: latest `end` wins (discards
+    same-filing prior-year comparatives), latest `filed` breaks ties (captures restatements).
+  - Two bugs found and fixed via the real live run, each confirmed before fixing: (1) duration
+    facts (income-statement concepts) need a ~350–380 day span filter before dedup — without it,
+    a single 10-K's Q4-only fact can share the exact `end` date as the true annual figure and
+    silently get treated as a "conflicting" duplicate (real example: KHC FY2016
+    `SalesRevenueGoodsNet` had a $26.5B annual fact and a $6.9B Q4-only fact both under
+    `end=2016-12-31`); (2) as a final tiebreak when a genuine duration fact still ties with a
+    stray instant-tagged fact under the same tag (e.g. KHC FY2018 `GoodwillImpairmentLoss`),
+    prefer the entry that has a `start` field. Both are covered by regression tests reproducing
+    the exact real values. `ruff`, `mypy`, `pytest` (28 tests) all green; `make build` against
+    the real KHC bronze snapshot reproduces the known FY2018 story (net loss ≈ $10.2B, $7.0B
+    goodwill impairment) with no unresolved conflicts.

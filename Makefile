@@ -7,7 +7,7 @@ ingest:
 	uv run python -m fin_lakehouse.ingest KHC
 
 build:
-	@echo "build: not implemented yet (milestone 3)" && exit 1
+	uv run python -m fin_lakehouse.build_silver
 
 test:
 	uv run pytest

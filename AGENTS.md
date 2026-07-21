@@ -139,3 +139,35 @@ make build  # dbt build (once transform/ has models — milestone 3+)
     reproduces the flagship KHC FY2018 story end to end: goodwill 35.3% of assets, equity
     survives ex-goodwill ($15.2B) but net income is still negative even normalized for the
     impairment (-$3.2B) — a genuine operating problem beyond the write-down itself.
+- **Milestone 4**: `detector/rules.py` (typed `Rule` dataclass table, all 10 rules from §7),
+  `detector/score.py` (risk_score = 100 × fired-severity-weight / total-catalogue-weight,
+  high=3/medium=2/low=1, human-confirmed formula), `detector/data.py` (loads the gold table).
+  Two bugs found via the real live run, both human-confirmed before fixing:
+  - **§6/§7 inconsistency**: `margin_erosion` needs `net_margin_yoy`, but §6's YoY list only
+    specifies `gross_margin_yoy`. Added `net_margin_yoy` to `fct_company_year_metrics` (same LAG
+    pattern as the other 5 trend features). Also found `goodwill_impairment` itself wasn't
+    exposed as a gold column (only used internally for `normalized_net_income`) — added as a
+    passthrough, needed by the `goodwill_impairment` rule.
+  - **YoY sign-flip bug** (real, and pre-existing in already-shipped milestone-3 code): the naive
+    `(current - prior) / prior` formula sign-flips when `prior` is negative. FY2019 net margin
+    actually *improved* from -38.8% to +7.75% (a real recovery), but the old formula computed
+    -120% ("erosion") because it divided by a negative prior. Fixed by dividing by `abs(prior)`
+    across all 7 YoY columns, not just the new one — positive now always means improvement, even
+    across a zero-crossing.
+  - **Stale schema bug**: adding `+schema: gold` mid-development left orphaned copies of the mart
+    behind in the old `main` schema (dbt doesn't drop old locations on a schema-config change). A
+    "pick the first matching schema" discovery query in both `detector/data.py` and
+    `tests/test_gold_metrics.py` silently read the stale, pre-fix copy — explaining why
+    `goodwill_impairment` and `margin_erosion` didn't fire in the first real run. Fixed by
+    deleting the (gitignored, fully rebuildable) stale warehouse and hardcoding the known
+    `main_gold` schema in both readers instead of discovering it dynamically.
+  - **KHC story, human-confirmed against real detector output**: `goodwill_heavy` fires nearly
+    every year (32–37% of assets, all but FY2025); `goodwill_impairment` fires FY2018–2025 (8
+    straight years), headlined by the $7.0B FY2018 and a second $6.7B FY2025 write-down;
+    `leverage` never fires (debt-to-equity stayed under ~1.1x, well below the 2.0x threshold —
+    KHC's problem was goodwill overvaluation, not leverage); `equity_wiped_by_gw` never fires
+    (equity survived every impairment, $13–21B ex-goodwill); highest risk years are **2022/2023**
+    (score 50, compounding negative working capital + weak liquidity + CCC deterioration), not
+    FY2018 (score 29.2 — goodwill-heavy + margin erosion + the impairment, but liquidity was fine
+    that specific year). Matches the qualitative course analysis.
+  - `ruff`, `mypy`, `pytest` (56 tests) and `dbt build` (11/11) all green.

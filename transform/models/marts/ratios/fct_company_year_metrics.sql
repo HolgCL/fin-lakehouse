@@ -4,7 +4,8 @@
 --
 -- Scope note: revenue_real_yoy (CPI-deflated growth) and break_even are out of scope for v1 per
 -- §6 -- no CPI seed table exists yet and no fixed/variable cost split is available from XBRL.
--- Skipped, not fabricated.
+-- Skipped, not fabricated. net_margin_yoy is added beyond §6's YoY list because §7's
+-- margin_erosion detector rule needs it (human-confirmed, see AGENTS.md milestone 4 log).
 
 with base as (
     select * from {{ ref('int_company_year_with_prior') }}
@@ -19,6 +20,7 @@ metrics as (
         net_income,
         revenue_prior,
         net_income_prior,
+        coalesce(goodwill_impairment, 0)                                     as goodwill_impairment,
 
         -- Liquidity
         case when current_liabilities != 0
@@ -67,7 +69,7 @@ metrics as (
         case when total_assets != 0
             then goodwill / total_assets end                                 as goodwill_to_assets,
         equity - goodwill                                                    as equity_ex_goodwill,
-        net_income + coalesce(goodwill_impairment, 0)                        as normalized_net_income,
+        net_income + coalesce(base.goodwill_impairment, 0)                   as normalized_net_income,
 
         list_filter(
             [
@@ -98,6 +100,7 @@ metrics_with_prior as (
         lag(dso) over (partition by cik order by fiscal_year)          as dso_prior,
         lag(dio + dso - dpo) over (partition by cik order by fiscal_year) as ccc_prior,
         lag(gross_margin) over (partition by cik order by fiscal_year) as gross_margin_prior,
+        lag(net_margin) over (partition by cik order by fiscal_year)   as net_margin_prior,
         lag(net_debt) over (partition by cik order by fiscal_year)     as net_debt_prior
     from metrics m
 )
@@ -126,20 +129,29 @@ select
     goodwill_to_assets,
     equity_ex_goodwill,
     normalized_net_income,
+    goodwill_impairment,
 
-    -- Trend features (YoY, § 6)
+    -- Trend features (YoY, § 6; net_margin_yoy added beyond §6's list because §7's
+    -- margin_erosion rule needs it -- human-confirmed, see AGENTS.md milestone 4 log).
+    -- Divides by abs(prior), not prior: dividing by a negative prior sign-flips the naive
+    -- formula (e.g. a loss-to-profit recovery would compute as a large negative "decline").
+    -- abs(prior) keeps the sign meaningful (positive = improvement) across a zero-crossing --
+    -- human-confirmed, see AGENTS.md milestone 4 log.
     case when revenue_prior is not null and revenue_prior != 0
-        then (revenue - revenue_prior) / revenue_prior end                 as revenue_yoy,
+        then (revenue - revenue_prior) / abs(revenue_prior) end            as revenue_yoy,
     case when net_income_prior is not null and net_income_prior != 0
-        then (net_income - net_income_prior) / net_income_prior end        as net_income_yoy,
+        then (net_income - net_income_prior) / abs(net_income_prior) end   as net_income_yoy,
     case when dso_prior is not null and dso_prior != 0
-        then (dso - dso_prior) / dso_prior end                             as dso_yoy,
+        then (dso - dso_prior) / abs(dso_prior) end                       as dso_yoy,
     case when ccc_prior is not null and ccc_prior != 0
-        then ((dio + dso - dpo) - ccc_prior) / ccc_prior end               as ccc_yoy,
+        then ((dio + dso - dpo) - ccc_prior) / abs(ccc_prior) end          as ccc_yoy,
     case when gross_margin_prior is not null and gross_margin_prior != 0
-        then (gross_margin - gross_margin_prior) / gross_margin_prior end  as gross_margin_yoy,
+        then (gross_margin - gross_margin_prior) / abs(gross_margin_prior) end
+        as gross_margin_yoy,
+    case when net_margin_prior is not null and net_margin_prior != 0
+        then (net_margin - net_margin_prior) / abs(net_margin_prior) end   as net_margin_yoy,
     case when net_debt_prior is not null and net_debt_prior != 0
-        then (net_debt - net_debt_prior) / net_debt_prior end              as net_debt_yoy,
+        then (net_debt - net_debt_prior) / abs(net_debt_prior) end        as net_debt_yoy,
 
     null_metric_flags
 

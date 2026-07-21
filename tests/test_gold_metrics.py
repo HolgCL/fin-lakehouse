@@ -22,6 +22,8 @@ from pathlib import Path
 import duckdb
 import pytest
 
+from fin_lakehouse.detector.data import GOLD_SCHEMA
+
 WAREHOUSE = Path(__file__).parent.parent / "data" / "warehouse.duckdb"
 
 pytestmark = pytest.mark.skipif(
@@ -33,10 +35,7 @@ pytestmark = pytest.mark.skipif(
 def _fy2018_row() -> dict[str, object]:
     con = duckdb.connect(str(WAREHOUSE), read_only=True)
     try:
-        schema = con.execute(
-            "SELECT table_schema FROM information_schema.tables "
-            "WHERE table_name = 'fct_company_year_metrics'"
-        ).fetchone()[0]
+        schema = GOLD_SCHEMA
         cols = [
             "current_ratio",
             "quick_ratio",

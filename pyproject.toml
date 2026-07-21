@@ -1,0 +1,58 @@
+[project]
+name = "fin-lakehouse"
+version = "0.1.0"
+description = "Portfolio-grade financial-statement lakehouse with a red-flag detector, built on SEC EDGAR + DuckDB + dbt."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "polars>=1.0",
+    "duckdb>=1.0",
+    "dbt-core>=1.8",
+    "dbt-duckdb>=1.8",
+    "httpx>=0.27",
+    "pydantic-settings>=2.4",
+    "structlog>=24.1",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+    "mypy>=1.11",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fin_lakehouse"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "N"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+no_implicit_optional = true
+
+[[tool.mypy.overrides]]
+module = "fin_lakehouse.edgar.*"
+strict = true
+
+[[tool.mypy.overrides]]
+module = "fin_lakehouse.silver.*"
+strict = true
+
+[[tool.mypy.overrides]]
+module = "fin_lakehouse.detector.*"
+strict = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

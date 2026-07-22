@@ -218,3 +218,18 @@ make build  # dbt build (once transform/ has models — milestone 3+)
     than tuned away, since the rules fire exactly as specified in the brief.
   - `ruff`, `mypy`, `pytest` (66 tests) and `dbt build` (11/11, full 22-ticker/342-row universe)
     all green.
+- **Milestone 6**: `dashboards/app.py` — Streamlit gold explorer (§4 default over Power BI), three
+  views (Company explorer with a Plotly trend chart, cross-company ranked report, rule
+  drill-down), reusing `detector/score.py` directly rather than duplicating any scoring logic.
+  `make demo` wired up. README rewritten: Mermaid architecture diagram, the rule catalogue table,
+  a "what the detector actually finds" section citing the real cross-company results, the
+  Databricks/Delta `prod` seam (already-declared `profiles.yml` target, `dbt-databricks` not
+  installed by default to keep the local `dev` path free of an unused cloud adapter, the one
+  DuckDB-specific line in `silver/load.py`), and a testing-philosophy section pointing back at
+  this log's real bugs as the argument for independently-oracled tests.
+  - Actually launched the app (no project `run` skill existed yet) via Playwright + a
+    system-Python-installed Chromium (`chromium-cli` wasn't available in this environment), not
+    just imported it — all three views screenshotted with real data, zero browser console errors,
+    screenshots committed to `docs/screenshots/` and embedded in the README.
+  - `ruff`, `mypy`, `pytest` (66 tests), and `dbt build` (11/11) all green; `make demo` verified to
+    actually serve on `:8501` via the Makefile target itself, not just a manual invocation.

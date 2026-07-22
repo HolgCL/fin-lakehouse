@@ -21,4 +21,4 @@ lint:
 	uv run mypy src/
 
 demo:
-	@echo "demo: not implemented yet (milestone 6)" && exit 1
+	uv run streamlit run dashboards/app.py

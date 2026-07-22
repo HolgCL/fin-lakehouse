@@ -243,13 +243,18 @@ make build  # dbt build (once transform/ has models — milestone 3+)
     sat in the same display column as scalar floats — PyArrow can't serialize a mixed float/list
     column. Fixed by stringifying every cell in that table (`_fmt_cell`), not just the offending
     one, so the column is always a single Arrow-compatible dtype.
-  - **Environment instability, not a code bug**: repeated attempts to screenshot the new filter UI
-    live hit `streamlit run` segfaulting (exit 139) a few seconds into the browser session, with no
-    leaked processes and low free system memory — looks like host memory pressure, not an app
-    issue (the process starts fine every time; only sustained interactive sessions crashed). Rather
-    than keep fighting it, factored the filter predicate out into a plain `filter_reports()`
-    function and covered it with `tests/test_dashboard_filters.py` (5 tests) instead — verifies the
-    actual logic deterministically without needing a live browser. Also switched `app.py`'s
-    `main()` call to the standard `if __name__ == "__main__":` guard so the module can be safely
-    imported for testing (confirmed `streamlit run` still works identically with the guard).
-  - `ruff`, `mypy`, `pytest` (71 tests), and `dbt build` (11/11) all green.
+  - **Real crash, root cause `pyarrow` 25.0.0**: repeated attempts to interact with the running
+    dashboard hit `streamlit run` segfaulting (exit 139) on the very first script rerun (any view
+    switch or widget interaction) — reproducible 100% of the time, including with several GB of
+    free memory, which ruled out the host-memory-pressure theory floated initially. User fixed it
+    by pinning `pyarrow>=17.0,<25` in `pyproject.toml` (was resolving to 25.0.0) — confirmed after
+    the pin that every view, the new filters, and the "All gold metrics" table all survive
+    repeated navigation with zero console errors. While tracking this down, factored the filter
+    predicate out into a plain `filter_reports()` function covered by
+    `tests/test_dashboard_filters.py` (5 tests) so the logic is verified deterministically
+    regardless of browser/runtime state, and switched `app.py`'s `main()` call to the standard
+    `if __name__ == "__main__":` guard so the module can be safely imported for testing (confirmed
+    `streamlit run` still works identically with the guard).
+  - `ruff`, `mypy`, `pytest` (71 tests), and `dbt build` (11/11) all green. Dashboard fully
+    verified live end-to-end after the pyarrow pin: all three views, the new filters, and repeated
+    navigation between them all confirmed working with real data and zero console errors.

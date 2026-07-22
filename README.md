@@ -141,6 +141,9 @@ Requires only Python 3.12 (managed via `uv`) and internet access for `make inges
 services, no API keys — SEC EDGAR is free and unauthenticated (just requires a descriptive
 `User-Agent`, see `.env.example`).
 
+See **`docs/USAGE.md`** for task-oriented how-tos: adding a company, adding a metric, adding a
+detector rule, and filtering the report/dashboard down to specific problem areas.
+
 ## The Databricks/Delta `prod` seam
 
 The gold layer is plain dbt-duckdb SQL with no engine-specific syntax. `transform/profiles/profiles.yml`

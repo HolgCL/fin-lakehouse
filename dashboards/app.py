@@ -13,7 +13,10 @@ import plotly.express as px
 import streamlit as st
 
 from fin_lakehouse.detector.data import load_company_year_metrics
+from fin_lakehouse.detector.rules import RULE_CATALOGUE
 from fin_lakehouse.detector.score import build_ranked_report
+
+ALL_RULE_IDS = [rule.rule_id for rule in RULE_CATALOGUE]
 
 WAREHOUSE_PATH = Path("data/warehouse.duckdb")
 
@@ -29,6 +32,16 @@ CHARTABLE_METRICS = [
 
 def _fmt(value: Any, spec: str = ".2f") -> str:
     return format(value, spec) if value is not None else "—"
+
+
+def _fmt_cell(value: Any) -> str:
+    """Stringify every cell so the "value" column is a single Arrow-compatible dtype -- a
+    mix of floats and a list (null_metric_flags) in one column fails to serialize otherwise."""
+    if value is None:
+        return "—"
+    if isinstance(value, float):
+        return f"{value:,.4f}"
+    return str(value)
 
 
 @st.cache_data
@@ -63,15 +76,45 @@ def render_company_explorer(rows: list[dict[str, Any]], companies: list[str]) ->
 
     st.subheader(f"All gold metrics — {company} FY{fy}")
     metric_fields = [k for k in row if k not in ("cik", "entity_name", "fiscal_year")]
+    # null_metric_flags is a list, not a scalar -- stringify it so the "value" column stays a
+    # single Arrow-compatible type (a float/list mix otherwise fails to serialize).
     st.dataframe(
-        [{"metric": k, "value": row[k]} for k in metric_fields],
+        [{"metric": k, "value": _fmt_cell(row[k])} for k in metric_fields],
         use_container_width=True,
         hide_index=True,
     )
 
 
-def render_cross_company_ranking(reports: list[Any]) -> None:
-    st.subheader("Red-flag ranked report — all companies, all fiscal years")
+def filter_reports(
+    reports: list[Any],
+    company_filter: list[str],
+    rule_filter: list[str],
+    min_score: float,
+) -> list[Any]:
+    """Pure filter predicate, factored out so it's unit-testable without Streamlit widgets."""
+    return [
+        r
+        for r in reports
+        if r.risk_score >= min_score
+        and (not company_filter or r.entity_name in company_filter)
+        and (not rule_filter or set(rule_filter) <= {res.rule_id for res in r.fired_rules})
+    ]
+
+
+def render_cross_company_ranking(reports: list[Any], companies: list[str]) -> None:
+    st.subheader("Red-flag ranked report — filter by problem area")
+
+    col1, col2, col3 = st.columns([2, 2, 1])
+    company_filter = col1.multiselect("Company (empty = all)", companies)
+    rule_filter = col2.multiselect(
+        "Must have fired (empty = any)", ALL_RULE_IDS,
+        help="Only show company-years where every selected rule fired.",
+    )
+    min_score = col3.slider("Min risk score", 0, 100, 0)
+
+    filtered = filter_reports(reports, company_filter, rule_filter, min_score)
+    st.caption(f"{len(filtered)} of {len(reports)} company-years match")
+
     table = [
         {
             "Company": r.entity_name,
@@ -79,7 +122,7 @@ def render_cross_company_ranking(reports: list[Any]) -> None:
             "Risk score": round(r.risk_score, 1),
             "Fired rules": ", ".join(res.rule_id for res in r.fired_rules) or "—",
         }
-        for r in reports
+        for r in filtered
     ]
     st.dataframe(table, use_container_width=True, height=600, hide_index=True)
 
@@ -120,9 +163,10 @@ def main() -> None:
     if view == "Company explorer":
         render_company_explorer(rows, companies)
     elif view == "Cross-company ranking":
-        render_cross_company_ranking(reports)
+        render_cross_company_ranking(reports, companies)
     else:
         render_rule_drilldown(reports)
 
 
-main()
+if __name__ == "__main__":
+    main()

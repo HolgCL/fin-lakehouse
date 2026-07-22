@@ -233,3 +233,23 @@ make build  # dbt build (once transform/ has models — milestone 3+)
     screenshots committed to `docs/screenshots/` and embedded in the README.
   - `ruff`, `mypy`, `pytest` (66 tests), and `dbt build` (11/11) all green; `make demo` verified to
     actually serve on `:8501` via the Makefile target itself, not just a manual invocation.
+- **Post-milestone polish** (user request, Russian: "prepare documentation on how to use this —
+  add companies, add metrics, filter by problem areas"): added filter controls (company,
+  fired-rule, min risk score) to the dashboard's cross-company ranking view, and `docs/USAGE.md`
+  covering all three asked-for tasks plus adding a detector rule. Two real things found along the
+  way:
+  - **Real pre-existing bug**: the "All gold metrics" table crashed
+    (`pyarrow.lib.ArrowInvalid`) for certain companies/years because `null_metric_flags` (a list)
+    sat in the same display column as scalar floats — PyArrow can't serialize a mixed float/list
+    column. Fixed by stringifying every cell in that table (`_fmt_cell`), not just the offending
+    one, so the column is always a single Arrow-compatible dtype.
+  - **Environment instability, not a code bug**: repeated attempts to screenshot the new filter UI
+    live hit `streamlit run` segfaulting (exit 139) a few seconds into the browser session, with no
+    leaked processes and low free system memory — looks like host memory pressure, not an app
+    issue (the process starts fine every time; only sustained interactive sessions crashed). Rather
+    than keep fighting it, factored the filter predicate out into a plain `filter_reports()`
+    function and covered it with `tests/test_dashboard_filters.py` (5 tests) instead — verifies the
+    actual logic deterministically without needing a live browser. Also switched `app.py`'s
+    `main()` call to the standard `if __name__ == "__main__":` guard so the module can be safely
+    imported for testing (confirmed `streamlit run` still works identically with the guard).
+  - `ruff`, `mypy`, `pytest` (71 tests), and `dbt build` (11/11) all green.

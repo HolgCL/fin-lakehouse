@@ -31,7 +31,10 @@ jobs:
         run: uv run mypy src/
 
       - name: Ingest KHC from SEC EDGAR
-        run: make ingest
+        # Deliberately KHC only, not the full universe (universe.py) -- keeps CI fast and
+        # light on SEC's servers. The full-universe path is exercised locally (`make ingest`
+        # with no args) and by offline unit tests covering the multi-company mechanics.
+        run: uv run python -m fin_lakehouse.ingest KHC
 
       - name: Build silver + gold (dbt build)
         run: make build

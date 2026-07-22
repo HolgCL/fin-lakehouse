@@ -1,14 +1,17 @@
-.PHONY: setup ingest build test lint demo
+.PHONY: setup ingest build report test lint demo
 
 setup:
 	uv sync
 
 ingest:
-	uv run python -m fin_lakehouse.ingest KHC
+	uv run python -m fin_lakehouse.ingest
 
 build:
 	uv run python -m fin_lakehouse.build_silver
 	cd transform && uv run dbt build --profiles-dir profiles
+
+report:
+	uv run python -m fin_lakehouse.report
 
 test:
 	uv run pytest

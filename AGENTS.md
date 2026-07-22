@@ -171,3 +171,50 @@ make build  # dbt build (once transform/ has models — milestone 3+)
     FY2018 (score 29.2 — goodwill-heavy + margin erosion + the impairment, but liquidity was fine
     that specific year). Matches the qualitative course analysis.
   - `ruff`, `mypy`, `pytest` (56 tests) and `dbt build` (11/11) all green.
+- **Milestone 5**: `universe.py` (human-confirmed 22-ticker list — consumer staples, tech,
+  industrials/autos, retail, telecom/media; deliberately includes GE, T, BA, INTC for their real
+  documented red flags, not just clean blue-chips), `ingest.py` (`ingest_tickers`: one shared
+  `EdgarClient` across the whole run so the rate limiter actually governs it, not reset per
+  ticker; continues past a single ticker's failure, raises with the full failure list at the
+  end), `build_silver.py` (discovers every landed CIK from bronze, reads `entityName` from each
+  snapshot's own JSON instead of a hardcoded constant, one combined `write_company_year` call —
+  silver stays fully rebuildable from bronze at any universe size), `report.py` (ranked
+  cross-company Markdown report, `reports/red_flag_report.md`, gitignored/regenerated like
+  `data/`, human-confirmed).
+  - **Real bug, `Null` vs `Float64` dtype**: concatenating companies crashed
+    (`polars.exceptions.SchemaError`) because a company with an entirely-null field (e.g. one
+    that never reports `short_term_debt`) makes polars infer that column as `Null` instead of
+    `Float64`, conflicting with companies that do have data there. Fixed with an explicit schema
+    in `extract_company_year` (`silver/normalize.py`) instead of letting polars infer dtypes from
+    data — `tests/test_build_silver.py` pins this exact scenario as a regression test.
+  - **Real accounting-identity gaps at scale, both traced to exact tags, human-confirmed**: (1)
+    General Mills' up-to-4.27%-of-assets gap and GE's up-to-0.9%/$3.4B gap both matched a
+    "redeemable noncontrolling interest" concept, just tagged differently per filer —
+    `RedeemableNoncontrollingInterestEquityCarryingAmount` (GE, same tag as KHC's tiny residual)
+    and `RedeemableNoncontrollingInterestEquityOtherFairValue` (General Mills). Added both to
+    `temporary_equity`'s tag list. (2) PepsiCo's remaining ~0.15–0.26% residual traced to an
+    inconsistency in PepsiCo's *own* filed XBRL — their
+    `StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest` doesn't reconcile
+    with the sum of their own filed `StockholdersEquity` + `MinorityInterest` — not a missing
+    concept on our end, nothing further to extract. Bumped the accounting-identity tolerance from
+    0.1% to 0.3% of `total_assets`, clearing all 342 company-years across the full universe.
+  - **CI scope, human-confirmed**: CI's live ingest step stays KHC-only
+    (`uv run python -m fin_lakehouse.ingest KHC`, bypassing the Makefile's new universe default)
+    to keep CI fast and light on SEC's servers — the full-universe path is exercised locally and
+    by offline unit tests (`test_universe.py`, `test_ingest.py`, `test_build_silver.py`,
+    `test_report.py`) that mock the network or use synthetic bronze snapshots.
+  - **Real cross-company findings, sanity-checked against known history**: General Mills is the
+    highest-risk company in the universe — genuinely negative `equity_ex_goodwill` in *every*
+    year 2010–2026 (goodwill $6.6–15.6B against equity of only $4.3–10.5B, especially after the
+    2018 Blue Buffalo acquisition) plus debt-to-equity consistently 1.9–3.8x, a structural pattern
+    rather than an isolated bad year like KHC's. GE FY2018 (`equity_wiped_by_gw`, `margin_erosion`,
+    `goodwill_impairment`), AT&T FY2020 (`negative_working_cap`, `low_liquidity`, `margin_erosion`,
+    `goodwill_impairment`), Boeing FY2024 (`equity_wiped_by_gw`, `revenue_quality`,
+    `margin_erosion`), and Intel FY2012 (`revenue_quality`, `goodwill_impairment`) all fired
+    real, defensible flags matching their documented histories. Several mature consumer-staples
+    names (PepsiCo, Colgate, P&G, Mondelez) also show `equity_wiped_by_gw`/`negative_working_cap`
+    frequently — a known characteristic of shareholder-return-focused blue-chips running thin or
+    negative book equity from aggressive buybacks, not necessarily distress; noted here rather
+    than tuned away, since the rules fire exactly as specified in the brief.
+  - `ruff`, `mypy`, `pytest` (66 tests) and `dbt build` (11/11, full 22-ticker/342-row universe)
+    all green.

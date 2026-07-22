@@ -85,12 +85,17 @@ CONCEPT_PRIORITY: dict[str, list[str]] = {
     # Not in brief §5 / not a gold metric input: extracted only to power the dbt
     # accounting-identity test (assets = liabilities + equity + these), since Assets includes
     # noncontrolling interest and temporary/mezzanine equity that parent-only StockholdersEquity
-    # doesn't. Human-confirmed (see AGENTS.md milestone 3 log).
+    # doesn't. Human-confirmed (see AGENTS.md milestone 3 log). Two more tags added at milestone
+    # 5 scale-out: different filers use different tags for essentially the same "redeemable NCI"
+    # concept (GE uses CarryingAmount, General Mills uses OtherFairValue) -- human-confirmed,
+    # see AGENTS.md milestone 5 log.
     "minority_interest": [
         "MinorityInterest",
     ],
     "temporary_equity": [
         "TemporaryEquityCarryingAmountAttributableToParent",
+        "RedeemableNoncontrollingInterestEquityCarryingAmount",
+        "RedeemableNoncontrollingInterestEquityOtherFairValue",
     ],
 }
 

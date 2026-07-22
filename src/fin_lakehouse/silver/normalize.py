@@ -101,10 +101,22 @@ def _fiscal_years(raw_facts: dict[str, Any]) -> list[int]:
     return sorted(years)
 
 
+_SCHEMA: dict[str, pl.DataType] = {
+    "cik": pl.Utf8(),
+    "entity_name": pl.Utf8(),
+    "fiscal_year": pl.Int64(),
+    **{field: pl.Float64() for field in CONCEPT_PRIORITY},
+}
+
+
 def extract_company_year(cik10: str, entity_name: str, raw_companyfacts: bytes) -> pl.DataFrame:
     """Tag-priority extraction into one row per fiscal year, §5 fields as columns.
 
-    Missing fields are left null and logged loudly (never coerced to 0), per §1.6.
+    Missing fields are left null and logged loudly (never coerced to 0), per §1.6. An explicit
+    schema keeps dtypes consistent even when a company has an entirely-null field -- polars would
+    otherwise infer that column as Null instead of Float64, which then conflicts when
+    concatenating that company with others that do have data for it (see AGENTS.md milestone 5
+    log).
     """
     payload = json.loads(raw_companyfacts)
     raw_facts: dict[str, Any] = payload.get("facts", {}).get("us-gaap", {})
@@ -131,4 +143,4 @@ def extract_company_year(cik10: str, entity_name: str, raw_companyfacts: bytes) 
             row[field] = value
         rows.append(row)
 
-    return pl.DataFrame(rows)
+    return pl.DataFrame(rows, schema=_SCHEMA)

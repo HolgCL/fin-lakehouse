@@ -11,4 +11,5 @@ transform/target/
 transform/dbt_packages/
 transform/logs/
 transform/profiles/.user.yml
+reports/
 .DS_Store
